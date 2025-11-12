@@ -34,6 +34,35 @@ enum ReportingServiceError: LocalizedError {
   }
 }
 
+
+struct Loger: Codable {
+    static var logLevel: LogLevel = .none
+    
+    public static func print(_ items: Any..., separator: String = " ", terminator: String = "\n", level: LogLevel = .none) {
+        if level >= logLevel {
+            Swift.print(items, separator: separator, terminator: terminator)
+        }
+    }
+    
+    public enum LogLevel: String, Comparable, Equatable {
+        case none
+        case info
+        case debug
+        
+        private var priority: Int {
+            switch self {
+                case .none: return 0
+                case .info: return 1
+                case .debug: return 2
+            }
+        }
+        
+        public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
+            lhs.priority < rhs.priority
+        }
+    }
+}
+
 public final class ReportingService {
   
   // MARK: - Properties
@@ -91,11 +120,11 @@ public final class ReportingService {
         do {
           try self.httpClient.callEndPoint(endPoint) { (result: FirstLaunch) in
             self.launchID = result.id
-            print("✅ ReportPortal Launch created successfully with ID: \(result.id)")
+              Loger.print("✅ ReportPortal Launch created successfully with ID: \(result.id)")
             launchSemaphore.signal()
           }
         } catch let error {
-          print("🚨 ReportingService Launch Creation Error: Failed to create new launch on ReportPortal server. Details: \(error.localizedDescription). Check your server configuration and network connectivity.")
+            Loger.print("🚨 ReportingService Launch Creation Error: Failed to create new launch on ReportPortal server. Details: \(error.localizedDescription). Check your server configuration and network connectivity.")
           launchSemaphore.signal() // Signal even on error to prevent deadlock
         }
         
@@ -111,7 +140,7 @@ public final class ReportingService {
   
   func startRootSuite(_ suite: XCTestSuite) throws {
     guard let launchID = launchID else {
-      print("🚨 ReportingService Critical Error: Cannot start root suite '\(suite.name)' - Launch ID is missing. This indicates launch creation failed completely. All test results will be lost.")
+        Loger.print("🚨 ReportingService Critical Error: Cannot start root suite '\(suite.name)' - Launch ID is missing. This indicates launch creation failed completely. All test results will be lost.")
       throw ReportingServiceError.launchIdNotFound
     }
     
@@ -127,7 +156,7 @@ public final class ReportingService {
         rootSuiteSemaphore.signal()
       }
     } catch {
-      print("🚨 ReportingService: Failed to start root suite '\(suite.name)': \(error.localizedDescription)")
+        Loger.print("🚨 ReportingService: Failed to start root suite '\(suite.name)': \(error.localizedDescription)")
       rootSuiteSemaphore.signal() // Signal to prevent deadlock
       throw error
     }
@@ -137,11 +166,11 @@ public final class ReportingService {
   
   func startTestSuite(_ suite: XCTestSuite) throws {
     guard let launchID = launchID else {
-      print("🚨 ReportingService Critical Error: Cannot start test suite '\(suite.name)' - Launch ID is missing.")
+        Loger.print("🚨 ReportingService Critical Error: Cannot start test suite '\(suite.name)' - Launch ID is missing.")
       throw ReportingServiceError.launchIdNotFound
     }
     guard let rootSuiteID = rootSuiteID else {
-      print("🚨 ReportingService Critical Error: Cannot start test suite '\(suite.name)' - Root Suite ID is missing.")
+        Loger.print("🚨 ReportingService Critical Error: Cannot start test suite '\(suite.name)' - Root Suite ID is missing.")
       throw ReportingServiceError.launchIdNotFound
     }
     
@@ -157,7 +186,7 @@ public final class ReportingService {
         testSuiteSemaphore.signal()
       }
     } catch {
-      print("🚨 ReportingService: Failed to start test suite '\(suite.name)': \(error.localizedDescription)")
+        Loger.print("🚨 ReportingService: Failed to start test suite '\(suite.name)': \(error.localizedDescription)")
       testSuiteSemaphore.signal() // Signal to prevent deadlock
       throw error
     }
@@ -167,11 +196,11 @@ public final class ReportingService {
   
   func startTest(_ test: XCTestCase) throws {
     guard let launchID = launchID else {
-      print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Launch ID is missing.")
+        Loger.print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Launch ID is missing.")
       throw ReportingServiceError.launchIdNotFound
     }
     guard let testSuiteID = testSuiteID else {
-      print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Test Suite ID is missing.")
+        Loger.print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Test Suite ID is missing.")
       throw ReportingServiceError.testSuiteIdNotFound
     }
     
@@ -190,7 +219,7 @@ public final class ReportingService {
         testSemaphore.signal()
       }
     } catch {
-      print("🚨 ReportingService: Failed to start test '\(test.name)': \(error.localizedDescription)")
+        Loger.print("🚨 ReportingService: Failed to start test '\(test.name)': \(error.localizedDescription)")
       testSemaphore.signal() // Signal to prevent deadlock
       throw error
     }
@@ -201,12 +230,12 @@ public final class ReportingService {
   // Enhanced error reporting with screenshot support
   func reportErrorWithScreenshot(message: String, testCase: XCTestCase? = nil) throws {
     guard let launchID = launchID else {
-      print("🚨 ReportingService Screenshot Error: Cannot report error with screenshot - Launch ID is missing. Error: '\(message)'")
+        Loger.print("🚨 ReportingService Screenshot Error: Cannot report error with screenshot - Launch ID is missing. Error: '\(message)'")
       throw ReportingServiceError.launchIdNotFound
     }
     
     guard !testID.isEmpty else {
-      print("🚨 ReportingService Screenshot Error: Cannot report error with screenshot - Test ID is missing. Error: '\(message)'")
+        Loger.print("🚨 ReportingService Screenshot Error: Cannot report error with screenshot - Test ID is missing. Error: '\(message)'")
       return
     }
     
@@ -223,7 +252,7 @@ public final class ReportingService {
       let attachment = FileAttachment(data: screenshotResult.data, filename: filename, mimeType: screenshotResult.mimeType)
       attachments.append(attachment)
     } else {
-      print("⚠️ ReportingService Screenshot Warning: Failed to capture screenshot for error: '\(message)'")
+        Loger.print("⚠️ ReportingService Screenshot Warning: Failed to capture screenshot for error: '\(message)'")
     }
     
     // Enhanced error message with stack trace
@@ -243,7 +272,7 @@ public final class ReportingService {
         errorSemaphore.signal()
       }
     } catch {
-      print("🚨 ReportingService: Failed to report error with screenshot: \(error.localizedDescription)")
+        Loger.print("🚨 ReportingService: Failed to report error with screenshot: \(error.localizedDescription)")
       errorSemaphore.signal() // Signal to prevent deadlock
       throw error
     }
@@ -268,7 +297,7 @@ public final class ReportingService {
         finishTestSemaphore.signal()
       }
     } catch {
-      print("⚠️ ReportingService: Failed to finish test '\(test.name)': \(error.localizedDescription)")
+        Loger.print("⚠️ ReportingService: Failed to finish test '\(test.name)': \(error.localizedDescription)")
       finishTestSemaphore.signal() // Signal to prevent deadlock
       throw error
     }
@@ -278,7 +307,7 @@ public final class ReportingService {
   
   func finishTestSuite() throws {
     guard let testSuiteID = testSuiteID else {
-      print("🚨 ReportingService Critical Error: Cannot finish test suite - Test Suite ID is missing.")
+        Loger.print("🚨 ReportingService Critical Error: Cannot finish test suite - Test Suite ID is missing.")
       throw ReportingServiceError.testSuiteIdNotFound
     }
     
@@ -291,7 +320,7 @@ public final class ReportingService {
         finishTestSuiteSemaphore.signal()
       }
     } catch {
-      print("⚠️ ReportingService: Failed to finish test suite: \(error.localizedDescription)")
+        Loger.print("⚠️ ReportingService: Failed to finish test suite: \(error.localizedDescription)")
       finishTestSuiteSemaphore.signal() // Signal to prevent deadlock
       throw error
     }
@@ -301,7 +330,7 @@ public final class ReportingService {
   
   func finishRootSuite() throws {
     guard let rootSuiteID = rootSuiteID else {
-      print("🚨 ReportingService Critical Error: Cannot finish root suite - Root Suite ID is missing.")
+        Loger.print("🚨 ReportingService Critical Error: Cannot finish root suite - Root Suite ID is missing.")
       throw ReportingServiceError.testSuiteIdNotFound
     }
     
@@ -314,7 +343,7 @@ public final class ReportingService {
         finishRootSuiteSemaphore.signal()
       }
     } catch {
-      print("⚠️ ReportingService: Failed to finish root suite: \(error.localizedDescription)")
+        Loger.print("⚠️ ReportingService: Failed to finish root suite: \(error.localizedDescription)")
       finishRootSuiteSemaphore.signal() // Signal to prevent deadlock
       throw error
     }
@@ -324,11 +353,11 @@ public final class ReportingService {
   
   func finishLaunch() throws {
     guard configuration.shouldFinishLaunch else {
-      print("🎬✅ ReportingService: Skip finish till next test bundle")
+        Loger.print("🎬✅ ReportingService: Skip finish till next test bundle")
       return
     }
     guard let launchID = launchID else {
-      print("❌ ReportingService: LaunchID not found when finishing launch")
+        Loger.print("❌ ReportingService: LaunchID not found when finishing launch")
       throw ReportingServiceError.launchIdNotFound
     }
     
@@ -341,7 +370,7 @@ public final class ReportingService {
         finishLaunchSemaphore.signal()
       }
     } catch {
-      print("⚠️ ReportingService: Failed to finish launch: \(error.localizedDescription)")
+        Loger.print("⚠️ ReportingService: Failed to finish launch: \(error.localizedDescription)")
       finishLaunchSemaphore.signal() // Signal to prevent deadlock
       throw error
     }
@@ -432,7 +461,7 @@ private extension ReportingService {
             return (bestData, "png", "image/png")
         }
 #else
-        print("🚨 ReportingService Platform Error: Screenshot capture not available on this platform. Only iOS supports screenshot capture.")
+        Loger.print("🚨 ReportingService Platform Error: Screenshot capture not available on this platform. Only iOS supports screenshot capture.")
         return nil
 #endif
     }
